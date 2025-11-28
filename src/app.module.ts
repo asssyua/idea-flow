@@ -5,7 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProfileModule } from './modules/profile/profile.module';
-import { User } from './entities/user.entity';
+import { SeedsModule } from './seeds/seed.module';
 
 @Module({
   imports: [
@@ -30,6 +30,7 @@ import { User } from './entities/user.entity';
     }),
     AuthModule,
     ProfileModule,
+    SeedsModule
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -3,9 +3,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { User } from '../../../src/entities/user.entity';
-import { UserRole } from '../../../src/enums/user-role.enum';
-import { UserStatus } from '../../../src/enums/user-status.enum';
+import { User } from '../entities/user.entity';
+import { UserRole } from '../enums/user-role.enum';
+import { UserStatus } from '../enums/user-status.enum';
 
 @Injectable()
 export class AdminSeed {
