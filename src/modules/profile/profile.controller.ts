@@ -3,8 +3,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { UserRole } from '../../enums/user-role.enum';
-import { UserStatus } from '../../enums/user-status.enum';
+import { UserRole } from '../../enums/user/user-role.enum';
+import { UserStatus } from '../../enums/user/user-status.enum';
 import { User } from '../../entities/user.entity';
 
 @Controller('profile') 

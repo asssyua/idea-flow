@@ -3,8 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../entities/user.entity';
-import { UserRole } from '../enums/user-role.enum';
-import { UserStatus } from '../enums/user-status.enum';
+import { UserRole } from '../enums/user/user-role.enum';
+import { UserStatus } from '../enums/user/user-status.enum';
 
 @Injectable()
 export class AdminSeed {

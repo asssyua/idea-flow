@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { SeedsModule } from './seeds/seed.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { TopicModule } from './modules/topic/topic.module';
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { AdminModule } from './modules/admin/admin.module';
     AuthModule,
     ProfileModule,
     SeedsModule,
-    AdminModule
+    AdminModule,
+    TopicModule
   ],
   controllers: [AppController],
   providers: [AppService],

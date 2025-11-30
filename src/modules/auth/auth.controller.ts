@@ -19,7 +19,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
-import { UserRole } from '../../enums/user-role.enum';
+import { UserRole } from '../../enums/user/user-role.enum';
 import type { Request } from 'express'; 
 
 @Controller('auth')

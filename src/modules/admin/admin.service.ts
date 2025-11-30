@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../entities/user.entity';
-import { UserStatus } from '../../enums/user-status.enum';
+import { UserStatus } from '../../enums/user/user-status.enum';
 import { BlockUserDto } from './dto/block-user.dto';
 
 @Injectable()

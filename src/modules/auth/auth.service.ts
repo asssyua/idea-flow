@@ -12,7 +12,7 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmailService } from '../email/email.service';
-import { UserStatus } from '../../enums/user-status.enum';
+import { UserStatus } from '../../enums/user/user-status.enum';
 
 @Injectable()
 export class AuthService {
