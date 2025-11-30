@@ -1,21 +1,77 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UserRole } from '../../enums/user-role.enum';
+import { UserStatus } from '../../enums/user-status.enum';
+import { User } from '../../entities/user.entity';
 
-@Controller('profile') // Префикс /profile, НЕ /auth/profile
+@Controller('profile') 
 export class ProfileController {
+  
   @Get()
   @UseGuards(JwtAuthGuard)
-  getProfile(@Request() req) {
-    return { message: 'Your profile', user: req.user };
+  getProfile(@GetUser() user: User) {
+    const profile = this.formatProfileResponse(user);
+    return { 
+      user: profile 
+    };
   }
 
   @Get('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  getAdminProfile() {
-    return { message: 'Admin-only profile data' };
+  getAdminProfile(@GetUser() user: User) {
+    const profile = this.formatProfileResponse(user);
+    return { 
+      message: 'Admin profile information',
+      user: profile,
+      adminData: {
+        totalUsers: 'You have access to admin dashboard',
+        systemStats: 'View all system statistics'
+      }
+    };
+  }
+
+  @Get('block-info')
+  @UseGuards(JwtAuthGuard)
+  getBlockInfo(@GetUser() user: User) {
+    if (user.status !== UserStatus.BLOCKED) {
+      return { 
+        isBlocked: false,
+        message: 'Your account is active' 
+      };
+    }
+
+    return {
+      isBlocked: true,
+      blockedAt: user.blockedAt,
+      blockReason: user.blockReasonForUser,
+      contactSupport: 'If you believe this is a mistake, please contact support at support@ideaflow.com'
+    };
+  }
+
+  // Форматирование профиля пользователя (только нужные поля)
+  private formatProfileResponse(user: User): any {
+    const baseProfile = {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      status: user.status,
+    };
+
+    // Добавляем информацию о блокировке только если пользователь заблокирован
+    if (user.status === UserStatus.BLOCKED) {
+      return {
+        ...baseProfile,
+        blockInfo: {
+          blockedAt: user.blockedAt,
+          blockReason: user.blockReasonForUser,
+          contactSupport: 'Please contact support for assistance'
+        }
+      };
+    }
+
+    return baseProfile;
   }
 }

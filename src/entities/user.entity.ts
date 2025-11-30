@@ -1,3 +1,4 @@
+// entities/user.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { UserRole } from '../enums/user-role.enum';
 import { UserStatus } from '../enums/user-status.enum';
@@ -47,6 +48,15 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true })
   passwordResetTokenExpires: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  blockReason: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  blockReasonForUser: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  blockedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

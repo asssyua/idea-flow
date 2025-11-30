@@ -10,6 +10,7 @@ import { User } from '../../entities/user.entity';
 import { RevokedToken } from '../../entities/revoked-token.entity';
 import { UserService } from '../user/user.service';
 import { EmailModule } from '../email/email.module';
+import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { EmailModule } from '../email/email.module';
      EmailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, UserService],
+  providers: [AuthService, JwtStrategy, UserService, RolesGuard],
   exports: [AuthService, JwtStrategy],
 })
 export class AuthModule {

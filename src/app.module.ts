@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+// app.module.ts
+import { Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -6,6 +7,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { SeedsModule } from './seeds/seed.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -30,9 +32,13 @@ import { SeedsModule } from './seeds/seed.module';
     }),
     AuthModule,
     ProfileModule,
-    SeedsModule
+    SeedsModule,
+    AdminModule
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements OnModuleInit {
+  constructor() {}
+  onModuleInit() {}
+}
