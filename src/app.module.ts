@@ -1,4 +1,3 @@
-// app.module.ts
 import { Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -9,6 +8,7 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { SeedsModule } from './seeds/seed.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { TopicModule } from './modules/topic/topic.module';
+import { IdeaModule } from './modules/idea/idea.module';
 
 @Module({
   imports: [
@@ -35,7 +35,8 @@ import { TopicModule } from './modules/topic/topic.module';
     ProfileModule,
     SeedsModule,
     AdminModule,
-    TopicModule
+    TopicModule,
+    IdeaModule
   ],
   controllers: [AppController],
   providers: [AppService],
