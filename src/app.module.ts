@@ -1,11 +1,14 @@
-import { Module } from '@nestjs/common';
+import { Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProfileModule } from './modules/profile/profile.module';
-import { User } from './entities/user.entity';
+import { SeedsModule } from './seeds/seed.module';
+import { AdminModule } from './modules/admin/admin.module';
+import { TopicModule } from './modules/topic/topic.module';
+import { IdeaModule } from './modules/idea/idea.module';
 
 @Module({
   imports: [
@@ -30,8 +33,15 @@ import { User } from './entities/user.entity';
     }),
     AuthModule,
     ProfileModule,
+    SeedsModule,
+    AdminModule,
+    TopicModule,
+    IdeaModule
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements OnModuleInit {
+  constructor() {}
+  onModuleInit() {}
+}
