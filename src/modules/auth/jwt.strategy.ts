@@ -4,6 +4,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../../modules/user/user.service';
 import { AuthService } from './auth.service';
+import { UserStatus } from '../../enums/user/user-status.enum';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -21,8 +22,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     const user = await this.userService.findById(payload.sub);
-    if (!user || user.status !== 'active') {
-      throw new UnauthorizedException('Invalid user or status');
+    if (!user) {
+      throw new UnauthorizedException('Invalid user');
+    }
+
+    if (user.status === UserStatus.BLOCKED) {
+      throw new UnauthorizedException('User account is blocked');
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException('User account is not active');
     }
 
     const isRevoked = await this.authService.isTokenRevoked(payload.jti);
