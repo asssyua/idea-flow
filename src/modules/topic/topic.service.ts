@@ -18,22 +18,20 @@ export class TopicService {
   ) {}
 
   private formatTopicResponse(topic: Topic, includeId: boolean = false): any {
-    const response = {
+    const response: any = {
+      id: topic.id, // Всегда включаем id
       title: topic.title,
       description: topic.description,
       status: topic.status,
       privacy: topic.privacy,
-      deadline: topic.deadline,
+      deadline: topic.deadline ? topic.deadline.toISOString() : null,
       ideaCount: topic.ideaCount,
-      author: {
+      createdAt: topic.createdAt ? topic.createdAt.toISOString() : null,
+      createdBy: topic.createdBy ? {
         firstName: topic.createdBy.firstName,
         lastName: topic.createdBy.lastName,
-      }
+      } : null
     };
-
-    if (includeId) {
-      response['id'] = topic.id;
-    }
 
     return response;
   }
