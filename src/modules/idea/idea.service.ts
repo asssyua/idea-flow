@@ -11,6 +11,7 @@ import { UpdateIdeaDto } from './dto/update-idea.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UserRole } from '../../enums/user/user-role.enum';
 import { TopicStatus } from '../../enums/topic/topic-status.enum';
+import { TopicPrivacy } from '../../enums/topic/topic-privacy.enum';
 import { ReactionType } from 'src/enums/reactions-type.enum';
 
 
@@ -29,7 +30,8 @@ export class IdeaService {
   ) {}
 
   private formatIdeaResponse(idea: Idea, includeId: boolean = false): any {
-    const response = {
+    const response: any = {
+      id: idea.id, // Всегда включаем ID, так как он нужен для лайков/дизлайков
       title: idea.title,
       description: idea.description,
       images: idea.images || [],
@@ -37,6 +39,7 @@ export class IdeaService {
       dislikes: idea.dislikes,
       rating: idea.rating,
       commentCount: idea.commentCount,
+      createdAt: idea.createdAt,
       author: {
         firstName: idea.author.firstName,
         lastName: idea.author.lastName,
@@ -44,10 +47,10 @@ export class IdeaService {
       topic: {
         title: idea.topic.title,
         status: idea.topic.status,
-      }}
+      }
+    };
 
     if (includeId) {
-      response['id'] = idea.id;
       response['topicId'] = idea.topicId;
       response['authorId'] = idea.authorId;
     }
@@ -107,7 +110,7 @@ export class IdeaService {
     }
 
     if (user?.role !== UserRole.ADMIN) {
-      if (topic.status !== TopicStatus.APPROVED || topic.privacy !== 'public') {
+      if (topic.status !== TopicStatus.APPROVED || topic.privacy !== TopicPrivacy.PUBLIC) {
         throw new ForbiddenException('You do not have access to this topic');
       }
     }
@@ -141,7 +144,7 @@ export class IdeaService {
     }
 
     if (user?.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
@@ -207,6 +210,10 @@ export class IdeaService {
   }
 
   async like(id: string, user: User): Promise<any> {
+    if (!user) {
+      throw new ForbiddenException('User not authenticated');
+    }
+
     const idea = await this.ideaRepository.findOne({
       where: { id },
       relations: ['author', 'topic'],
@@ -216,8 +223,12 @@ export class IdeaService {
       throw new NotFoundException('Idea not found');
     }
 
+    if (!idea.topic) {
+      throw new BadRequestException('Topic not found for this idea');
+    }
+
     if (user.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
@@ -231,7 +242,8 @@ export class IdeaService {
         throw new ConflictException('You have already liked this idea');
       } else {
         await this.userReactionRepository.remove(existingReaction);
-        idea.dislikes -= 1;
+        idea.dislikes = Math.max(0, (idea.dislikes || 0) - 1);
+        await this.ideaRepository.save(idea);
       }
     }
 
@@ -242,12 +254,16 @@ export class IdeaService {
     });
     await this.userReactionRepository.save(reaction);
 
-    idea.likes += 1;
+    idea.likes = (idea.likes || 0) + 1;
     const savedIdea = await this.ideaRepository.save(idea);
     return this.formatIdeaResponse(savedIdea, user.role === UserRole.ADMIN);
   }
 
   async dislike(id: string, user: User): Promise<any> {
+    if (!user) {
+      throw new ForbiddenException('User not authenticated');
+    }
+
     const idea = await this.ideaRepository.findOne({
       where: { id },
       relations: ['author', 'topic'],
@@ -257,8 +273,12 @@ export class IdeaService {
       throw new NotFoundException('Idea not found');
     }
 
+    if (!idea.topic) {
+      throw new BadRequestException('Topic not found for this idea');
+    }
+
     if (user.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
@@ -272,10 +292,11 @@ export class IdeaService {
         throw new ConflictException('You have already disliked this idea');
       } else {
         await this.userReactionRepository.remove(existingReaction);
-        idea.likes -= 1;
+        idea.likes = Math.max(0, (idea.likes || 0) - 1);
+        await this.ideaRepository.save(idea);
       }
     }
-
+  
     const reaction = this.userReactionRepository.create({
       userId: user.id,
       ideaId: id,
@@ -283,7 +304,7 @@ export class IdeaService {
     });
     await this.userReactionRepository.save(reaction);
 
-    idea.dislikes += 1;
+    idea.dislikes = (idea.dislikes || 0) + 1;
     const savedIdea = await this.ideaRepository.save(idea);
     return this.formatIdeaResponse(savedIdea, user.role === UserRole.ADMIN);
   }
@@ -335,7 +356,7 @@ export class IdeaService {
     }
 
     if (user.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
@@ -366,7 +387,7 @@ export class IdeaService {
     }
 
     if (user?.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
