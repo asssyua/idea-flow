@@ -13,14 +13,12 @@ export class RolesGuard implements CanActivate {
       context.getClass(),
     ]);
     
-    // Если нет требований к ролям - разрешаем доступ
     if (!requiredRoles) {
       return true;
     }
     
     const { user } = context.switchToHttp().getRequest();
     
-    // Проверяем, есть ли у пользователя нужная роль
     return requiredRoles.some((role) => user.role === role);
   }
 }

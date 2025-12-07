@@ -52,9 +52,7 @@ export class ProfileController {
     };
   }
 
-  // Форматирование профиля пользователя (только нужные поля)
   private formatProfileResponse(user: User): any {
-    // Убеждаемся, что роль правильно сериализуется
     const roleValue = user.role ? (typeof user.role === 'string' ? user.role : String(user.role)) : null;
     
     const baseProfile = {
@@ -62,10 +60,9 @@ export class ProfileController {
       lastName: user.lastName,
       status: user.status,
       email: user.email,
-      role: roleValue || user.role, // Возвращаем роль как строку
+      role: roleValue || user.role,
     };
 
-    // Добавляем информацию о блокировке только если пользователь заблокирован
     if (user.status === UserStatus.BLOCKED) {
       return {
         ...baseProfile,

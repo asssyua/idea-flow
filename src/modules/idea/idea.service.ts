@@ -4,14 +4,13 @@ import { Repository } from 'typeorm';
 import { Idea } from '../../entities/idea.entity';
 import { Comment } from '../../entities/comment.entity';
 import { Topic } from '../../entities/topic.entity';
-import { UserReaction } from '../../entities/user-reaction.entity'; // Добавлен импорт
+import { UserReaction } from '../../entities/user-reaction.entity';
 import { User } from '../../entities/user.entity';
 import { CreateIdeaDto } from './dto/create-idea.dto';
 import { UpdateIdeaDto } from './dto/update-idea.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UserRole } from '../../enums/user/user-role.enum';
 import { TopicStatus } from '../../enums/topic/topic-status.enum';
-import { TopicPrivacy } from '../../enums/topic/topic-privacy.enum';
 import { ReactionType } from 'src/enums/reactions-type.enum';
 
 
@@ -31,7 +30,7 @@ export class IdeaService {
 
   private formatIdeaResponse(idea: Idea, includeId: boolean = false): any {
     const response: any = {
-      id: idea.id, // Всегда включаем ID, так как он нужен для лайков/дизлайков
+      id: idea.id, // Всегда включаем id, так как он нужен для реакций и комментариев
       title: idea.title,
       description: idea.description,
       images: idea.images || [],
@@ -48,7 +47,7 @@ export class IdeaService {
         title: idea.topic.title,
         status: idea.topic.status,
       }
-    };
+    }
 
     if (includeId) {
       response['topicId'] = idea.topicId;
@@ -110,7 +109,7 @@ export class IdeaService {
     }
 
     if (user?.role !== UserRole.ADMIN) {
-      if (topic.status !== TopicStatus.APPROVED || topic.privacy !== TopicPrivacy.PUBLIC) {
+      if (topic.status !== TopicStatus.APPROVED || topic.privacy !== 'public') {
         throw new ForbiddenException('You do not have access to this topic');
       }
     }
@@ -144,7 +143,7 @@ export class IdeaService {
     }
 
     if (user?.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
@@ -210,10 +209,6 @@ export class IdeaService {
   }
 
   async like(id: string, user: User): Promise<any> {
-    if (!user) {
-      throw new ForbiddenException('User not authenticated');
-    }
-
     const idea = await this.ideaRepository.findOne({
       where: { id },
       relations: ['author', 'topic'],
@@ -223,12 +218,8 @@ export class IdeaService {
       throw new NotFoundException('Idea not found');
     }
 
-    if (!idea.topic) {
-      throw new BadRequestException('Topic not found for this idea');
-    }
-
     if (user.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
@@ -239,11 +230,13 @@ export class IdeaService {
 
     if (existingReaction) {
       if (existingReaction.type === ReactionType.LIKE) {
-        throw new ConflictException('You have already liked this idea');
+        await this.userReactionRepository.remove(existingReaction);
+        idea.likes -= 1;
+        const savedIdea = await this.ideaRepository.save(idea);
+        return this.formatIdeaResponse(savedIdea, user.role === UserRole.ADMIN);
       } else {
         await this.userReactionRepository.remove(existingReaction);
-        idea.dislikes = Math.max(0, (idea.dislikes || 0) - 1);
-        await this.ideaRepository.save(idea);
+        idea.dislikes -= 1;
       }
     }
 
@@ -254,16 +247,12 @@ export class IdeaService {
     });
     await this.userReactionRepository.save(reaction);
 
-    idea.likes = (idea.likes || 0) + 1;
+    idea.likes += 1;
     const savedIdea = await this.ideaRepository.save(idea);
     return this.formatIdeaResponse(savedIdea, user.role === UserRole.ADMIN);
   }
 
   async dislike(id: string, user: User): Promise<any> {
-    if (!user) {
-      throw new ForbiddenException('User not authenticated');
-    }
-
     const idea = await this.ideaRepository.findOne({
       where: { id },
       relations: ['author', 'topic'],
@@ -273,12 +262,8 @@ export class IdeaService {
       throw new NotFoundException('Idea not found');
     }
 
-    if (!idea.topic) {
-      throw new BadRequestException('Topic not found for this idea');
-    }
-
     if (user.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
@@ -289,14 +274,16 @@ export class IdeaService {
 
     if (existingReaction) {
       if (existingReaction.type === ReactionType.DISLIKE) {
-        throw new ConflictException('You have already disliked this idea');
+        await this.userReactionRepository.remove(existingReaction);
+        idea.dislikes -= 1;
+        const savedIdea = await this.ideaRepository.save(idea);
+        return this.formatIdeaResponse(savedIdea, user.role === UserRole.ADMIN);
       } else {
         await this.userReactionRepository.remove(existingReaction);
-        idea.likes = Math.max(0, (idea.likes || 0) - 1);
-        await this.ideaRepository.save(idea);
+        idea.likes -= 1;
       }
     }
-  
+
     const reaction = this.userReactionRepository.create({
       userId: user.id,
       ideaId: id,
@@ -304,7 +291,7 @@ export class IdeaService {
     });
     await this.userReactionRepository.save(reaction);
 
-    idea.dislikes = (idea.dislikes || 0) + 1;
+    idea.dislikes += 1;
     const savedIdea = await this.ideaRepository.save(idea);
     return this.formatIdeaResponse(savedIdea, user.role === UserRole.ADMIN);
   }
@@ -356,7 +343,7 @@ export class IdeaService {
     }
 
     if (user.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
@@ -387,7 +374,7 @@ export class IdeaService {
     }
 
     if (user?.role !== UserRole.ADMIN) {
-      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== TopicPrivacy.PUBLIC) {
+      if (idea.topic.status !== TopicStatus.APPROVED || idea.topic.privacy !== 'public') {
         throw new ForbiddenException('You do not have access to this idea');
       }
     }
@@ -420,6 +407,43 @@ export class IdeaService {
     await this.ideaRepository.decrement({ id: comment.ideaId }, 'commentCount', 1);
 
     return { message: 'Comment deleted successfully' };
+  }
+
+  async getAllComments(): Promise<any[]> {
+    const comments = await this.commentRepository.find({
+      relations: ['author', 'idea', 'idea.topic'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return comments.map(comment => ({
+      ...this.formatCommentResponse(comment),
+      idea: comment.idea ? {
+        id: comment.idea.id,
+        title: comment.idea.title,
+        topic: comment.idea.topic ? {
+          id: comment.idea.topic.id,
+          title: comment.idea.topic.title,
+          status: comment.idea.topic.status,
+        } : null,
+      } : null,
+    }));
+  }
+
+  async adminRemoveComment(commentId: string): Promise<{ message: string }> {
+    const comment = await this.commentRepository.findOne({
+      where: { id: commentId },
+      relations: ['idea'],
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    await this.commentRepository.remove(comment);
+    
+    await this.ideaRepository.decrement({ id: comment.ideaId }, 'commentCount', 1);
+
+    return { message: 'Comment deleted by admin' };
   }
 
   async getUserStatistics(userId: string): Promise<any> {

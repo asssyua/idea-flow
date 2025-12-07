@@ -124,7 +124,6 @@ async getUserById(id: string): Promise<any> {
     return { message: 'Support message marked as read' };
   }
 
-  // Добавьте этот метод в AdminService
 private formatUserResponse(user: User): any {
   return {
     id: user.id,
@@ -136,11 +135,10 @@ private formatUserResponse(user: User): any {
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
-    // Для админа показываем больше информации
     ...(user.status === UserStatus.BLOCKED && {
       blockInfo: {
         blockedAt: user.blockedAt,
-        blockReason: user.blockReason, // Причина блокировки (видна и админу, и пользователю)
+        blockReason: user.blockReason,
       }
     })
   };

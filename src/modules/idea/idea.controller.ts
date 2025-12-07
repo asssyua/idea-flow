@@ -26,7 +26,7 @@ export class IdeaController {
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.USER)
+  @Roles(UserRole.USER, UserRole.ADMIN)
   create(@Body() createIdeaDto: CreateIdeaDto, @GetUser() user: User) {
     return this.ideaService.create(createIdeaDto, user);
   }
@@ -42,6 +42,27 @@ export class IdeaController {
   @Roles(UserRole.ADMIN)
   findAll() {
     return this.ideaService.findAll();
+  }
+
+  @Get('admin/comments/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  getAllComments() {
+    return this.ideaService.getAllComments();
+  }
+
+  @Delete('admin/comments/:commentId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  adminRemoveComment(@Param('commentId') commentId: string) {
+    return this.ideaService.adminRemoveComment(commentId);
+  }
+
+  @Get('admin/statistics/:userId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  getAdminUserStatistics(@Param('userId') userId: string) {
+    return this.ideaService.getUserStatistics(userId);
   }
 
   @Get(':id')
@@ -109,12 +130,5 @@ export class IdeaController {
   @UseGuards(JwtAuthGuard)
   getUserStatistics(@GetUser() user: User) {
     return this.ideaService.getUserStatistics(user.id);
-  }
-
-  @Get('admin/statistics/:userId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  getAdminUserStatistics(@Param('userId') userId: string) {
-    return this.ideaService.getUserStatistics(userId);
   }
 }
