@@ -7,7 +7,7 @@ export class EmailService {
   private transporter;
 
   constructor() {
-    this.logger.log('Initializing EmailService with Gmail...');
+    this.logger.log('Инициализация службы электронной почты с помощью Gmail...');
     
 this.transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
@@ -25,15 +25,15 @@ this.transporter = nodemailer.createTransport({
   private async verifyConnection() {
     try {
       await this.transporter.verify();
-      this.logger.log(' Email connection verified successfully');
+      this.logger.log(' Подключение к электронной почте успешно подтверждено');
     } catch (error) {
-      this.logger.error(' Email connection failed:', error);
+      this.logger.error(' Не удалось установить соединение с электронной почтой:', error);
     }
   }
 
   async sendVerificationEmail(email: string, code: string): Promise<boolean> {
     try {
-      this.logger.log(`Sending verification code to: ${email}`);
+      this.logger.log(`Отправка проверочного кода на: ${email}`);
 
       const mailOptions = {
         from: `"IdeaFlow" <${process.env.EMAIL_USER}>`,
@@ -43,17 +43,17 @@ this.transporter = nodemailer.createTransport({
       };
 
       const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(` Verification email sent to ${email}, Message ID: ${info.messageId}`);
+      this.logger.log(` Электронное письмо с уведомлением, отправленное по адресу${email},  ID сообщения: ${info.messageId}`);
       
       return true;
     } catch (error) {
-      this.logger.error(`Failed to send email to ${email}:`, error);
+      this.logger.error(`Не удалось отправить письмо на почту ${email}:`, error);
       return false;
     }
   }
 async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
     try {
-      this.logger.log(`Sending password reset email to: ${email}`);
+      this.logger.log(`Завершение сброса пароля по электронной почте на: ${email}`);
 
       const resetLink = `http://localhost:3000/auth/reset-password?token=${resetToken}`;
 
@@ -65,10 +65,10 @@ async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean
       };
 
       await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Password reset email sent to ${email}`);
+      this.logger.log(`Электронное письмо для сброса пароля, отправленное на адрес${email}`);
       return true;
     } catch (error) {
-      this.logger.error(`Failed to send password reset email to ${email}:`, error);
+      this.logger.error(`Не удалось отправить электронное письмо для сброса пароля на ${email}:`, error);
       return false;
     }
   }
@@ -119,14 +119,10 @@ async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean
             <p style="margin: 0 0 10px 0; color: #666;">Ваш токен для восстановления:</p>
             <div style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #667eea; margin-bottom: 20px;">
               ${token}
-            </div>
-            <a href="${resetLink}" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Восстановить пароль
-            </a>
-          </div>
+
           
           <p style="color: #666; font-size: 14px;">
-            Или скопируйте этот токен в форму восстановления пароля:<br>
+            Скопируйте этот токен в форму восстановления пароля:<br>
             <strong>${token}</strong>
           </p>
           

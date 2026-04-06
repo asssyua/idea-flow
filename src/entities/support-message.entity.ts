@@ -25,3 +25,4 @@ export class SupportMessage {
   @CreateDateColumn()
   createdAt: Date;
 }
+

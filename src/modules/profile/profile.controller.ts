@@ -6,14 +6,17 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UserRole } from '../../enums/user/user-role.enum';
 import { UserStatus } from '../../enums/user/user-status.enum';
 import { User } from '../../entities/user.entity';
+import { BadgeService } from '../badge/badge.service';
 
 @Controller('profile') 
 export class ProfileController {
-  
+  constructor(private readonly badgeService: BadgeService) {}
+
   @Get()
   @UseGuards(JwtAuthGuard)
-  getProfile(@GetUser() user: User) {
-    const profile = this.formatProfileResponse(user);
+  async getProfile(@GetUser() user: User) {
+    const badges = await this.badgeService.getBadgesForDisplay(user.id);
+    const profile = this.formatProfileResponse(user, badges);
     return { 
       user: profile 
     };
@@ -22,14 +25,15 @@ export class ProfileController {
   @Get('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  getAdminProfile(@GetUser() user: User) {
-    const profile = this.formatProfileResponse(user);
+  async getAdminProfile(@GetUser() user: User) {
+    const badges = await this.badgeService.getBadgesForDisplay(user.id);
+    const profile = this.formatProfileResponse(user, badges);
     return { 
-      message: 'Admin profile information',
+      message: 'Страница администратора',
       user: profile,
       adminData: {
-        totalUsers: 'You have access to admin dashboard',
-        systemStats: 'View all system statistics'
+        totalUsers: 'У вас есть доступ к панели управления администратора',
+        systemStats: 'Просмотр всей системной статистики'
       }
     };
   }
@@ -40,7 +44,7 @@ export class ProfileController {
     if (user.status !== UserStatus.BLOCKED) {
       return { 
         isBlocked: false,
-        message: 'Your account is active' 
+        message: 'Ваша учетная запись активна' 
       };
     }
 
@@ -48,11 +52,11 @@ export class ProfileController {
       isBlocked: true,
       blockedAt: user.blockedAt,
       blockReason: user.blockReasonForUser,
-      contactSupport: 'If you believe this is a mistake, please contact support at support@ideaflow.com'
+      contactSupport: 'Если вы считаете, что это ошибка, пожалуйста, свяжитесь со службой поддержки по адресу admin@ideaflow.com'
     };
   }
 
-  private formatProfileResponse(user: User): any {
+  private formatProfileResponse(user: User, badges?: unknown[]): any {
     const roleValue = user.role ? (typeof user.role === 'string' ? user.role : String(user.role)) : null;
     
     const baseProfile = {
@@ -61,6 +65,7 @@ export class ProfileController {
       status: user.status,
       email: user.email,
       role: roleValue || user.role,
+      badges: badges ?? [],
     };
 
     if (user.status === UserStatus.BLOCKED) {
@@ -69,7 +74,7 @@ export class ProfileController {
         blockInfo: {
           blockedAt: user.blockedAt,
           blockReason: user.blockReasonForUser,
-          contactSupport: 'Please contact support for assistance'
+          contactSupport: 'Пожалуйста, обратитесь за помощью в службу поддержки'
         }
       };
     }

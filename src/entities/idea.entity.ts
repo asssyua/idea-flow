@@ -43,6 +43,12 @@ export class Idea {
   @Column({ default: 0 })
   commentCount: number;
 
+  @Column({ default: false })
+  isPinned: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  pinnedAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

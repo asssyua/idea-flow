@@ -76,11 +76,11 @@ async getUserById(id: string): Promise<any> {
     const user = await this.userRepository.findOne({ where: { email } });
     
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Пользователь не найден');
     }
 
     if (user.status !== UserStatus.BLOCKED) {
-      throw new BadRequestException('Only blocked users can send support messages');
+      throw new BadRequestException('Только заблокированные пользователи могут отправлять сообщения в службу поддержки');
     }
 
     const supportMessage = this.supportMessageRepository.create({
@@ -91,7 +91,7 @@ async getUserById(id: string): Promise<any> {
 
     await this.supportMessageRepository.save(supportMessage);
 
-    return { message: 'Support message sent successfully' };
+    return { message: 'Сообщение службы поддержки успешно отправлено' };
   }
 
   async getAllSupportMessages(): Promise<any[]> {
@@ -115,13 +115,13 @@ async getUserById(id: string): Promise<any> {
     const supportMessage = await this.supportMessageRepository.findOne({ where: { id } });
     
     if (!supportMessage) {
-      throw new NotFoundException('Support message not found');
+      throw new NotFoundException('Сообщение службы поддержки не найдено');
     }
 
     supportMessage.isRead = true;
     await this.supportMessageRepository.save(supportMessage);
 
-    return { message: 'Support message marked as read' };
+    return { message: 'Сообщение службы поддержки помечено как прочитанное' };
   }
 
 private formatUserResponse(user: User): any {

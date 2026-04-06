@@ -102,6 +102,18 @@ export class IdeaController {
     return this.ideaService.dislike(id, user);
   }
 
+  @Post(':id/pin')
+  @UseGuards(JwtAuthGuard)
+  pinIdea(@Param('id') id: string, @GetUser() user: User) {
+    return this.ideaService.pinIdea(id, user);
+  }
+
+  @Post(':id/unpin')
+  @UseGuards(JwtAuthGuard)
+  unpinIdea(@Param('id') id: string, @GetUser() user: User) {
+    return this.ideaService.unpinIdea(id, user);
+  }
+
   @Post(':id/comments')
   @UseGuards(JwtAuthGuard)
   addComment(@Param('id') id: string, @Body() createCommentDto: CreateCommentDto, @GetUser() user: User) {

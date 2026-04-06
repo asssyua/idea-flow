@@ -7,6 +7,6 @@ export class VerifyEmailDto {
 
   @IsString()
   @IsNotEmpty()
-  @Length(6, 6, { message: 'Verification code must be 6 characters long' })
+  @Length(6, 6, { message: 'Код верификации не менее 6 символов' })
   code: string;
 }

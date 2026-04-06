@@ -1,25 +1,29 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Topic } from '../../entities/topic.entity';
+import { TopicFavorite } from '../../entities/topic-favorite.entity';
 import { User } from '../../entities/user.entity';
 import { CreateTopicDto } from './dto/create-topic.dto';
 import { UpdateTopicDto } from './dto/update-topic.dto';
 import { SuggestTopicDto } from './dto/suggest-topic.dto';
 import { TopicStatus } from '../../enums/topic/topic-status.enum';
 import { UserRole } from '../../enums/user/user-role.enum';
-import { TopicPrivacy } from 'src/enums/topic/topic-privacy.enum';
+import { BadgeService } from '../badge/badge.service';
 
 @Injectable()
 export class TopicService {
   constructor(
     @InjectRepository(Topic)
     private topicRepository: Repository<Topic>,
+    @InjectRepository(TopicFavorite)
+    private topicFavoriteRepository: Repository<TopicFavorite>,
+    private readonly badgeService: BadgeService,
   ) {}
 
   private formatTopicResponse(topic: Topic, includeId: boolean = false): any {
     const response: any = {
-      id: topic.id, // Всегда включаем id
+      id: topic.id,
       title: topic.title,
       description: topic.description,
       status: topic.status,
@@ -37,6 +41,10 @@ export class TopicService {
   }
 
   async create(createTopicDto: CreateTopicDto, user: User): Promise<any> {
+    if (!user.isEmailVerified) {
+      throw new BadRequestException('Для создания тем необходимо подтвердить email');
+    }
+
     const topic = this.topicRepository.create({
       ...createTopicDto,
       createdBy: user,
@@ -45,10 +53,17 @@ export class TopicService {
     });
 
     const savedTopic = await this.topicRepository.save(topic);
+    if (savedTopic.status === TopicStatus.APPROVED) {
+      await this.badgeService.evaluateAfterTopicApprovedOrCreated(user.id);
+    }
     return this.formatTopicResponse(savedTopic);
   }
 
   async suggest(suggestTopicDto: SuggestTopicDto, user: User): Promise<any> {
+    if (!user.isEmailVerified) {
+      throw new BadRequestException('Для предложения тем необходимо подтвердить email');
+    }
+
     const topic = this.topicRepository.create({
       ...suggestTopicDto,
       createdBy: user,
@@ -96,16 +111,83 @@ export class TopicService {
     });
 
     if (!topic) {
-      throw new NotFoundException('Topic not found');
+      throw new NotFoundException('Тема не найдена');
     }
 
     if (user && user.role === UserRole.USER) {
       if (topic.status !== TopicStatus.APPROVED || topic.privacy !== 'public') {
-        throw new ForbiddenException('You do not have access to this topic');
+        throw new ForbiddenException('У вас нет доступа к этой теме');
       }
     }
 
     return this.formatTopicResponse(topic, user?.role === UserRole.ADMIN);
+  }
+
+  async listFavorites(user: User): Promise<any[]> {
+    const favorites = await this.topicFavoriteRepository.find({
+      where: { userId: user.id },
+      order: { createdAt: 'DESC' },
+    });
+
+    const topics = favorites
+      .map(f => f.topic)
+      .filter(Boolean);
+
+    return topics.map(topic => this.formatTopicResponse(topic, true));
+  }
+
+  async isFavorite(topicId: string, user: User): Promise<{ isFavorite: boolean }> {
+    const favorite = await this.topicFavoriteRepository.findOne({
+      where: { userId: user.id, topicId },
+    });
+    return { isFavorite: !!favorite };
+  }
+
+  async addToFavorites(topicId: string, user: User): Promise<{ isFavorite: boolean }> {
+    const topic = await this.topicRepository.findOne({
+      where: { id: topicId },
+      relations: ['createdBy'],
+    });
+
+    if (!topic) {
+      throw new NotFoundException('Тема не найдена');
+    }
+
+    if (topic.status !== TopicStatus.APPROVED || topic.privacy !== 'public') {
+      throw new ForbiddenException('У вас нет доступа к этой теме');
+    }
+
+    const existing = await this.topicFavoriteRepository.findOne({
+      where: { userId: user.id, topicId },
+    });
+
+    if (existing) {
+      return { isFavorite: true };
+    }
+
+    try {
+      const fav = this.topicFavoriteRepository.create({
+        userId: user.id,
+        topicId,
+      });
+      await this.topicFavoriteRepository.save(fav);
+    } catch (e) {
+      throw new ConflictException('Тема уже добавлена в избранное');
+    }
+
+    return { isFavorite: true };
+  }
+
+  async removeFromFavorites(topicId: string, user: User): Promise<{ isFavorite: boolean }> {
+    const existing = await this.topicFavoriteRepository.findOne({
+      where: { userId: user.id, topicId },
+    });
+
+    if (existing) {
+      await this.topicFavoriteRepository.remove(existing);
+    }
+
+    return { isFavorite: false };
   }
 
   async update(id: string, updateTopicDto: UpdateTopicDto, user: User): Promise<any> {
@@ -115,15 +197,15 @@ export class TopicService {
     });
 
     if (!topic) {
-      throw new NotFoundException('Topic not found');
+      throw new NotFoundException('Тема не найдена');
     }
 
     if (user.role !== UserRole.ADMIN) {
       if (topic.createdById !== user.id) {
-        throw new ForbiddenException('You can only update your own topics');
+        throw new ForbiddenException('Вы можете редактировать только свои темы');
       }
       if (topic.status !== TopicStatus.PENDING) {
-        throw new ForbiddenException('You can only edit your topics while they are pending');
+        throw new ForbiddenException('Вы можете редактировать свои темы только во время их рассмотрения');
       }
     }
 
@@ -139,20 +221,20 @@ export class TopicService {
     });
 
     if (!topic) {
-      throw new NotFoundException('Topic not found');
+      throw new NotFoundException('Тема не найдена');
     }
 
     if (user.role !== UserRole.ADMIN) {
       if (topic.createdById !== user.id) {
-        throw new ForbiddenException('You can only delete your own topics');
+        throw new ForbiddenException('Вы можете удалить только свои темы');
       }
       if (topic.status !== TopicStatus.PENDING) {
-        throw new ForbiddenException('You can only delete your topics while they are pending');
+        throw new ForbiddenException('Вы можете удалить только свои темы находящиеся на расмотрении');
       }
     }
 
     await this.topicRepository.remove(topic);
-    return { message: 'Topic deleted successfully' };
+    return { message: 'Тема удалена' };
   }
 
   async adminUpdate(id: string, updateTopicDto: UpdateTopicDto): Promise<any> {
@@ -162,7 +244,7 @@ export class TopicService {
     });
 
     if (!topic) {
-      throw new NotFoundException('Topic not found');
+      throw new NotFoundException('Тема не найдена');
     }
 
     Object.assign(topic, updateTopicDto);
@@ -177,15 +259,16 @@ export class TopicService {
     });
 
     if (!topic) {
-      throw new NotFoundException('Topic not found');
+      throw new NotFoundException('Тема не найдена');
     }
     
     if (topic.status === TopicStatus.APPROVED) {
-      throw new BadRequestException('Topic is already approved');
+      throw new BadRequestException('Тема одобрена');
     }
 
     topic.status = TopicStatus.APPROVED;
     const savedTopic = await this.topicRepository.save(topic);
+    await this.badgeService.evaluateAfterTopicApprovedOrCreated(topic.createdById);
     return this.formatTopicResponse(savedTopic, true);
   }
 
@@ -196,11 +279,11 @@ export class TopicService {
     });
 
     if (!topic) {
-      throw new NotFoundException('Topic not found');
+      throw new NotFoundException('Тема не найдена');
     }
     
     if (topic.status === TopicStatus.REJECTED) {
-      throw new BadRequestException('Topic is already rejected');
+      throw new BadRequestException('Тема отклонена');
     }
 
     topic.status = TopicStatus.REJECTED;

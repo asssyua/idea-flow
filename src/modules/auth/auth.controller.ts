@@ -57,11 +57,11 @@ export class AuthController {
     const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
     if (!token) {
-      throw new UnauthorizedException('Token not provided');
+      throw new UnauthorizedException('Токен не предоставлен');
     }
 
     await this.authService.logout(token);
-    return { message: 'Successfully logged out' };
+    return { message: 'Успешно вышел из системы' };
   }
 
   @Post('forgot-password')
@@ -92,7 +92,6 @@ export class AuthController {
   @Roles(UserRole.ADMIN)
   async adminTest() {
     return { 
-      message: 'This endpoint is for admins only!',
       timestamp: new Date().toISOString()
     };
   }
@@ -102,7 +101,6 @@ export class AuthController {
   @Roles(UserRole.USER, UserRole.ADMIN)
   async userTest() {
     return {
-      message: 'This endpoint is for users and admins!',
       timestamp: new Date().toISOString()
     };
   }
