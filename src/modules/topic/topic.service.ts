@@ -28,9 +28,13 @@ export class TopicService {
       description: topic.description,
       status: topic.status,
       privacy: topic.privacy,
-      deadline: topic.deadline ? topic.deadline.toISOString() : null,
+      deadline: topic.deadline
+        ? (topic.deadline instanceof Date ? topic.deadline.toISOString() : topic.deadline)
+        : null,
       ideaCount: topic.ideaCount,
-      createdAt: topic.createdAt ? topic.createdAt.toISOString() : null,
+      createdAt: topic.createdAt
+        ? (topic.createdAt instanceof Date ? topic.createdAt.toISOString() : topic.createdAt)
+        : null,
       createdBy: topic.createdBy ? {
         firstName: topic.createdBy.firstName,
         lastName: topic.createdBy.lastName,
