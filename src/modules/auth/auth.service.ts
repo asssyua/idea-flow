@@ -33,36 +33,52 @@ export class AuthService {
     this.logger.log(`Попытка регистрации для: ${email}`);
 
     const existingUser = await this.userRepository.findOne({ where: { email } });
-    if (existingUser) {
+
+    // Если пользователь существует и уже верифицирован - ошибка
+    if (existingUser && existingUser.isEmailVerified) {
       throw new ConflictException('Пользователь с такой почтой уже существует');
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-
     const verificationCode = this.generateVerificationCode();
     const verificationCodeExpires = new Date(Date.now() + 60 * 60 * 1000);
 
-    const user = this.userRepository.create({
-      email,
-      password: hashedPassword,
-      firstName,
-      lastName,
-      status: UserStatus.PENDING,
-      emailVerificationCode: verificationCode,
-      emailVerificationCodeExpires: verificationCodeExpires,
-      isEmailVerified: false,
-    });
+    if (existingUser && !existingUser.isEmailVerified) {
+      // Обновляем существующего неподтверждённого пользователя
+      this.logger.log(`Обновление неподтверждённого пользователя: ${email}`);
 
-    await this.userRepository.save(user);
+      existingUser.firstName = firstName;
+      existingUser.lastName = lastName;
+      existingUser.password = hashedPassword;
+      existingUser.emailVerificationCode = verificationCode;
+      existingUser.emailVerificationCodeExpires = verificationCodeExpires;
+
+      await this.userRepository.save(existingUser);
+    } else {
+      // Создаём нового пользователя
+      const user = this.userRepository.create({
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        status: UserStatus.PENDING,
+        emailVerificationCode: verificationCode,
+        emailVerificationCodeExpires: verificationCodeExpires,
+        isEmailVerified: false,
+      });
+
+      await this.userRepository.save(user);
+    }
 
     const emailSent = await this.emailService.sendVerificationEmail(email, verificationCode);
-    
+
     if (!emailSent) {
-      throw new BadRequestException('Не удалось отправить код верификации');
+      this.logger.error(`Ошибка отправки email на ${email}. Проверьте логи EmailService.`);
+      throw new BadRequestException('Не удалось отправить код верификации. Возможные причины: 1) Не настроены EMAIL_USER/EMAIL_PASS в .env, 2) Неверный App Password для Gmail, 3) Проблемы с подключением к SMTP. Проверьте консоль backend для деталей.');
     }
 
     this.logger.log(`Регистрация успешна: ${email}`);
-    return { 
+    return {
       message: 'Регистрация прошла успешно. Пожалуйста, проверьте свой адрес электронной почты для получения кода подтверждения.'
     };
   }

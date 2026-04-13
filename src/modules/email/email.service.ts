@@ -7,17 +7,35 @@ export class EmailService {
   private transporter;
 
   constructor() {
-    this.logger.log('Инициализация службы электронной почты с помощью Gmail...');
-    
-this.transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.EMAIL_PORT || '587'),
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER || '',
-    pass: process.env.EMAIL_PASS || '',
-  },
-});
+    this.logger.log('Инициализация службы электронной почты...');
+
+    const emailUser = process.env.EMAIL_USER?.trim();
+    // Убираем пробелы из пароля (Gmail app password должен быть без пробелов)
+    const emailPass = process.env.EMAIL_PASS?.replace(/\s/g, '');
+    const emailHost = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com';
+    const emailPort = parseInt(process.env.EMAIL_PORT?.trim() || '587');
+
+    this.logger.log(`SMTP конфигурация: ${emailHost}:${emailPort}, пользователь: ${emailUser || 'не задан'}`);
+
+    if (!emailUser || !emailPass) {
+      this.logger.error('ВНИМАНИЕ: EMAIL_USER или EMAIL_PASS не заданы в переменных окружения!');
+      this.logger.error('Отправка email не будет работать. Пожалуйста, настройте .env файл:');
+      this.logger.error('  EMAIL_USER=your-email@gmail.com');
+      this.logger.error('  EMAIL_PASS=your-app-password (16 символов без пробелов)');
+      this.logger.error('  EMAIL_HOST=smtp.gmail.com (опционально)');
+      this.logger.error('  EMAIL_PORT=587 (опционально)');
+    }
+
+    this.transporter = nodemailer.createTransport({
+      host: emailHost,
+      port: emailPort,
+      secure: false,
+      requireTLS: true,
+      auth: {
+        user: emailUser || '',
+        pass: emailPass || '',
+      },
+    });
 
     this.verifyConnection();
   }
@@ -25,9 +43,16 @@ this.transporter = nodemailer.createTransport({
   private async verifyConnection() {
     try {
       await this.transporter.verify();
-      this.logger.log(' Подключение к электронной почте успешно подтверждено');
-    } catch (error) {
-      this.logger.error(' Не удалось установить соединение с электронной почтой:', error);
+      this.logger.log('Подключение к электронной почте успешно подтверждено');
+    } catch (error: any) {
+      this.logger.error('Не удалось установить соединение с электронной почтой:', error?.message || error);
+
+      if (error?.code === 'EAUTH') {
+        this.logger.error('Ошибка аутентификации. Проверьте:');
+        this.logger.error('1. EMAIL_USER и EMAIL_PASS правильно заданы');
+        this.logger.error('2. Для Gmail используйте App Password (не обычный пароль)');
+        this.logger.error('3. Убедитесь что нет пробелов в EMAIL_PASS');
+      }
     }
   }
 
@@ -46,8 +71,15 @@ this.transporter = nodemailer.createTransport({
       this.logger.log(` Электронное письмо с уведомлением, отправленное по адресу${email},  ID сообщения: ${info.messageId}`);
       
       return true;
-    } catch (error) {
-      this.logger.error(`Не удалось отправить письмо на почту ${email}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Не удалось отправить письмо на почту ${email}:`, error?.message || error);
+
+      if (error?.code === 'EAUTH') {
+        this.logger.error('Ошибка аутентификации SMTP. Проверьте настройки EMAIL_USER и EMAIL_PASS.');
+      } else if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
+        this.logger.error(`Не удалось подключиться к SMTP серверу ${process.env.EMAIL_HOST || 'smtp.gmail.com'}`);
+      }
+
       return false;
     }
   }
@@ -67,8 +99,8 @@ async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean
       await this.transporter.sendMail(mailOptions);
       this.logger.log(`Электронное письмо для сброса пароля, отправленное на адрес${email}`);
       return true;
-    } catch (error) {
-      this.logger.error(`Не удалось отправить электронное письмо для сброса пароля на ${email}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Не удалось отправить электронное письмо для сброса пароля на ${email}:`, error?.message || error);
       return false;
     }
   }
