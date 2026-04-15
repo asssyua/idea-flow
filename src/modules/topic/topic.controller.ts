@@ -46,10 +46,38 @@ export class TopicController {
     return this.topicService.findAll(status);
   }
 
-@Get('public')
+  @Get('public')
   @UseGuards(JwtAuthGuard)
   findForUser(@GetUser() user: User) {
     return this.topicService.findForUser(user);
+  }
+
+  @Get('favorites')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER)
+  listFavorites(@GetUser() user: User) {
+    return this.topicService.listFavorites(user);
+  }
+
+  @Get(':id/favorite')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER)
+  isFavorite(@Param('id') id: string, @GetUser() user: User) {
+    return this.topicService.isFavorite(id, user);
+  }
+
+  @Post(':id/favorite')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER)
+  addToFavorites(@Param('id') id: string, @GetUser() user: User) {
+    return this.topicService.addToFavorites(id, user);
+  }
+
+  @Delete(':id/favorite')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER)
+  removeFromFavorites(@Param('id') id: string, @GetUser() user: User) {
+    return this.topicService.removeFromFavorites(id, user);
   }
 
   @Get(':id')

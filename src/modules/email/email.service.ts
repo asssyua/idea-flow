@@ -7,17 +7,35 @@ export class EmailService {
   private transporter;
 
   constructor() {
-    this.logger.log('Initializing EmailService with Gmail...');
-    
-this.transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.EMAIL_PORT || '587'),
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER || '',
-    pass: process.env.EMAIL_PASS || '',
-  },
-});
+    this.logger.log('Инициализация службы электронной почты...');
+
+    const emailUser = process.env.EMAIL_USER?.trim();
+    // Убираем пробелы из пароля (Gmail app password должен быть без пробелов)
+    const emailPass = process.env.EMAIL_PASS?.replace(/\s/g, '');
+    const emailHost = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com';
+    const emailPort = parseInt(process.env.EMAIL_PORT?.trim() || '587');
+
+    this.logger.log(`SMTP конфигурация: ${emailHost}:${emailPort}, пользователь: ${emailUser || 'не задан'}`);
+
+    if (!emailUser || !emailPass) {
+      this.logger.error('ВНИМАНИЕ: EMAIL_USER или EMAIL_PASS не заданы в переменных окружения!');
+      this.logger.error('Отправка email не будет работать. Пожалуйста, настройте .env файл:');
+      this.logger.error('  EMAIL_USER=your-email@gmail.com');
+      this.logger.error('  EMAIL_PASS=your-app-password (16 символов без пробелов)');
+      this.logger.error('  EMAIL_HOST=smtp.gmail.com (опционально)');
+      this.logger.error('  EMAIL_PORT=587 (опционально)');
+    }
+
+    this.transporter = nodemailer.createTransport({
+      host: emailHost,
+      port: emailPort,
+      secure: false,
+      requireTLS: true,
+      auth: {
+        user: emailUser || '',
+        pass: emailPass || '',
+      },
+    });
 
     this.verifyConnection();
   }
@@ -25,15 +43,22 @@ this.transporter = nodemailer.createTransport({
   private async verifyConnection() {
     try {
       await this.transporter.verify();
-      this.logger.log(' Email connection verified successfully');
-    } catch (error) {
-      this.logger.error(' Email connection failed:', error);
+      this.logger.log('Подключение к электронной почте успешно подтверждено');
+    } catch (error: any) {
+      this.logger.error('Не удалось установить соединение с электронной почтой:', error?.message || error);
+
+      if (error?.code === 'EAUTH') {
+        this.logger.error('Ошибка аутентификации. Проверьте:');
+        this.logger.error('1. EMAIL_USER и EMAIL_PASS правильно заданы');
+        this.logger.error('2. Для Gmail используйте App Password (не обычный пароль)');
+        this.logger.error('3. Убедитесь что нет пробелов в EMAIL_PASS');
+      }
     }
   }
 
   async sendVerificationEmail(email: string, code: string): Promise<boolean> {
     try {
-      this.logger.log(`Sending verification code to: ${email}`);
+      this.logger.log(`Отправка проверочного кода на: ${email}`);
 
       const mailOptions = {
         from: `"IdeaFlow" <${process.env.EMAIL_USER}>`,
@@ -43,17 +68,24 @@ this.transporter = nodemailer.createTransport({
       };
 
       const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(` Verification email sent to ${email}, Message ID: ${info.messageId}`);
+      this.logger.log(` Электронное письмо с уведомлением, отправленное по адресу${email},  ID сообщения: ${info.messageId}`);
       
       return true;
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${email}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Не удалось отправить письмо на почту ${email}:`, error?.message || error);
+
+      if (error?.code === 'EAUTH') {
+        this.logger.error('Ошибка аутентификации SMTP. Проверьте настройки EMAIL_USER и EMAIL_PASS.');
+      } else if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
+        this.logger.error(`Не удалось подключиться к SMTP серверу ${process.env.EMAIL_HOST || 'smtp.gmail.com'}`);
+      }
+
       return false;
     }
   }
 async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
     try {
-      this.logger.log(`Sending password reset email to: ${email}`);
+      this.logger.log(`Завершение сброса пароля по электронной почте на: ${email}`);
 
       const resetLink = `http://localhost:3000/auth/reset-password?token=${resetToken}`;
 
@@ -65,10 +97,10 @@ async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean
       };
 
       await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Password reset email sent to ${email}`);
+      this.logger.log(`Электронное письмо для сброса пароля, отправленное на адрес${email}`);
       return true;
-    } catch (error) {
-      this.logger.error(`Failed to send password reset email to ${email}:`, error);
+    } catch (error: any) {
+      this.logger.error(`Не удалось отправить электронное письмо для сброса пароля на ${email}:`, error?.message || error);
       return false;
     }
   }
@@ -119,14 +151,10 @@ async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean
             <p style="margin: 0 0 10px 0; color: #666;">Ваш токен для восстановления:</p>
             <div style="font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #667eea; margin-bottom: 20px;">
               ${token}
-            </div>
-            <a href="${resetLink}" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Восстановить пароль
-            </a>
-          </div>
+
           
           <p style="color: #666; font-size: 14px;">
-            Или скопируйте этот токен в форму восстановления пароля:<br>
+            Скопируйте этот токен в форму восстановления пароля:<br>
             <strong>${token}</strong>
           </p>
           

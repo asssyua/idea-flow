@@ -1,4 +1,12 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateIdeaDto } from './create-idea.dto';
+import { IsArray, IsOptional, IsString } from 'class-validator';
 
-export class UpdateIdeaDto extends PartialType(CreateIdeaDto) {}
+export class UpdateIdeaDto {
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  images?: string[];
+}

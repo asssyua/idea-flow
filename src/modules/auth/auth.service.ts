@@ -30,40 +30,56 @@ export class AuthService {
   async register(registerDto: RegisterDto): Promise<{ message: string }> {
     const { email, password, firstName, lastName } = registerDto;
 
-    this.logger.log(`Registration attempt for: ${email}`);
+    this.logger.log(`Попытка регистрации для: ${email}`);
 
     const existingUser = await this.userRepository.findOne({ where: { email } });
-    if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+
+    // Если пользователь существует и уже верифицирован - ошибка
+    if (existingUser && existingUser.isEmailVerified) {
+      throw new ConflictException('Пользователь с такой почтой уже существует');
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-
     const verificationCode = this.generateVerificationCode();
     const verificationCodeExpires = new Date(Date.now() + 60 * 60 * 1000);
 
-    const user = this.userRepository.create({
-      email,
-      password: hashedPassword,
-      firstName,
-      lastName,
-      status: UserStatus.PENDING,
-      emailVerificationCode: verificationCode,
-      emailVerificationCodeExpires: verificationCodeExpires,
-      isEmailVerified: false,
-    });
+    if (existingUser && !existingUser.isEmailVerified) {
+      // Обновляем существующего неподтверждённого пользователя
+      this.logger.log(`Обновление неподтверждённого пользователя: ${email}`);
 
-    await this.userRepository.save(user);
+      existingUser.firstName = firstName;
+      existingUser.lastName = lastName;
+      existingUser.password = hashedPassword;
+      existingUser.emailVerificationCode = verificationCode;
+      existingUser.emailVerificationCodeExpires = verificationCodeExpires;
 
-    const emailSent = await this.emailService.sendVerificationEmail(email, verificationCode);
-    
-    if (!emailSent) {
-      throw new BadRequestException('Failed to send verification email');
+      await this.userRepository.save(existingUser);
+    } else {
+      // Создаём нового пользователя
+      const user = this.userRepository.create({
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        status: UserStatus.PENDING,
+        emailVerificationCode: verificationCode,
+        emailVerificationCodeExpires: verificationCodeExpires,
+        isEmailVerified: false,
+      });
+
+      await this.userRepository.save(user);
     }
 
-    this.logger.log(`User registered successfully: ${email}`);
-    return { 
-      message: 'Registration successful. Please check your email for verification code.'
+    const emailSent = await this.emailService.sendVerificationEmail(email, verificationCode);
+
+    if (!emailSent) {
+      this.logger.error(`Ошибка отправки email на ${email}. Проверьте логи EmailService.`);
+      throw new BadRequestException('Не удалось отправить код верификации. Возможные причины: 1) Не настроены EMAIL_USER/EMAIL_PASS в .env, 2) Неверный App Password для Gmail, 3) Проблемы с подключением к SMTP. Проверьте консоль backend для деталей.');
+    }
+
+    this.logger.log(`Регистрация успешна: ${email}`);
+    return {
+      message: 'Регистрация прошла успешно. Пожалуйста, проверьте свой адрес электронной почты для получения кода подтверждения.'
     };
   }
 
@@ -75,23 +91,23 @@ export class AuthService {
   });
 
   if (!user) {
-    throw new UnauthorizedException('User not found');
+    throw new UnauthorizedException('Пользователь не найден');
   }
 
   if (user.isEmailVerified) {
-    throw new BadRequestException('Email already verified');
+    throw new BadRequestException('Email верифицирован');
   }
 
   if (!user.emailVerificationCode || !user.emailVerificationCodeExpires) {
-    throw new BadRequestException('Verification code not found or expired');
+    throw new BadRequestException('Проверочный код не найден или срок действия истек');
   }
 
   if (user.emailVerificationCode !== code) {
-    throw new BadRequestException('Invalid verification code');
+    throw new BadRequestException('Не верный код верификации');
   }
 
   if (user.emailVerificationCodeExpires < new Date()) {
-    throw new BadRequestException('Verification code has expired');
+    throw new BadRequestException('Срок действия проверочного кода истек');
   }
 
   user.status = UserStatus.ACTIVE;
@@ -118,11 +134,11 @@ export class AuthService {
     const user = await this.userRepository.findOne({ where: { email } });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Пользователь не найден');
     }
 
     if (user.isEmailVerified) {
-      throw new BadRequestException('Email already verified');
+      throw new BadRequestException('Email подтверждён');
     }
 
     const verificationCode = this.generateVerificationCode();
@@ -136,11 +152,11 @@ export class AuthService {
     const emailSent = await this.emailService.sendVerificationEmail(email, verificationCode);
     
     if (!emailSent) {
-      throw new BadRequestException('Failed to send verification email');
+      throw new BadRequestException('Не удалось отправить код верификации');
     }
 
     return { 
-      message: 'Verification code sent successfully' 
+      message: 'Код верификации отправлен' 
     };
   }
 
@@ -149,23 +165,23 @@ export class AuthService {
 
   const user = await this.userRepository.findOne({ where: { email } });
   if (!user) {
-    throw new UnauthorizedException('Invalid credentials');
+    throw new UnauthorizedException('Неверные данные');
   }
 
   if (user.status === UserStatus.BLOCKED) {
     const blockMessage = user.blockReasonForUser 
-      ? `Your account has been blocked. Reason: ${user.blockReasonForUser}. Please contact support.`
-      : 'Your account has been blocked. Please contact support.';
+      ? `Ваш аккаунт был заблокирован. Причина: ${user.blockReasonForUser}. Пожалуйста обратитесь в поддержку.`
+      : 'Ваш аккаунт был заблокирован. Пожалуйста обратитесь в поддержку.';
     throw new ForbiddenException(blockMessage);
   }
 
   if (!user.isEmailVerified) {
-    throw new ForbiddenException('Please verify your email first');
+    throw new ForbiddenException('Пожалуйста подствердите ваш email');
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
-    throw new UnauthorizedException('Invalid credentials');
+    throw new UnauthorizedException('Неверные данные');
   }
 
   const payload = { 
@@ -182,19 +198,19 @@ export class AuthService {
 }
 
   async forgotPassword(email: string): Promise<{ message: string }> {
-    this.logger.log(`Password reset requested for: ${email}`);
+    this.logger.log(`Запрошен сброс пароля для: ${email}`);
 
     const user = await this.userRepository.findOne({ where: { email } });
     
     if (!user) {
-      this.logger.log(`Password reset requested for non-existent email: ${email}`);
+      this.logger.log(`Запрошен сброс пароля для несуществующего адреса электронной почты: ${email}`);
       return { 
-        message: 'If the email exists, a password reset link has been sent.' 
+        message: 'Если электронный адрес существует, вам будет отправлена ссылка для сброса пароля.' 
       };
     }
 
     if (user.status === UserStatus.BLOCKED) {
-      throw new BadRequestException('Account is blocked');
+      throw new BadRequestException('Аккаунт заблокирован');
     }
 
     const resetToken = this.generateResetToken();
@@ -209,17 +225,17 @@ export class AuthService {
       const emailSent = await this.emailService.sendPasswordResetEmail(email, resetToken);
       
       if (!emailSent) {
-        throw new BadRequestException('Failed to send password reset email');
+        throw new BadRequestException('Не удалось отправить электронное письмо для сброса пароля');
       }
 
-      this.logger.log(`Password reset email sent to: ${email}`);
+      this.logger.log(`Электронное письмо для сброса пароля, отправленное на адрес: ${email}`);
       
     } catch (emailError) {
-      this.logger.error(`Failed to send password reset email to ${email}:`, emailError);
+      this.logger.error(`Не удалось отправить электронное письмо для сброса пароля  ${email}:`, emailError);
     }
 
     return { 
-      message: 'If the email exists, a password reset link has been sent.' 
+      message: 'Если это электронный адрес существует, вам будет отправлена ссылка для сброса пароля.' 
     };
   }
 
@@ -231,15 +247,15 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BadRequestException('Invalid or expired reset token');
+      throw new BadRequestException('Недействительный или просроченный токен сброса');
     }
 
     if (!user.passwordResetTokenExpires || user.passwordResetTokenExpires < new Date()) {
-      throw new BadRequestException('Reset token has expired');
+      throw new BadRequestException('Срок действия токена сброса истек');
     }
 
     if (user.status === UserStatus.BLOCKED) {
-      throw new BadRequestException('Account is blocked');
+      throw new BadRequestException('Аккаунт заблокирован');
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -250,9 +266,9 @@ export class AuthService {
     
     await this.userRepository.save(user);
 
-    this.logger.log(`Password successfully reset for user: ${user.email}`);
+    this.logger.log(`Пароль успешно сброшен для пользователя: ${user.email}`);
     return { 
-      message: 'Password has been successfully reset.' 
+      message: 'Пароль успешно обновлён.' 
     };
   }
 
@@ -260,12 +276,12 @@ export class AuthService {
     const user = await this.userRepository.findOne({ where: { id: userId } });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('Пользователь не найден');
     }
 
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
     if (!isCurrentPasswordValid) {
-      throw new BadRequestException('Current password is incorrect');
+      throw new BadRequestException('Текущий пароль неверен');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
@@ -273,9 +289,9 @@ export class AuthService {
     
     await this.userRepository.save(user);
 
-    this.logger.log(`Password changed for user: ${user.email}`);
+    this.logger.log(`Пароль изменен для пользователя: ${user.email}`);
     return { 
-      message: 'Password has been successfully changed.' 
+      message: 'Пароль успешно изменен.' 
     };
   }
 
@@ -286,13 +302,13 @@ async validateUser(email: string, password: string): Promise<any> {
 
     if (user.status === UserStatus.BLOCKED) {
       const blockMessage = user.blockReasonForUser 
-        ? `Your account has been blocked. Reason: ${user.blockReasonForUser}. Please contact support.`
-        : 'Your account has been blocked. Please contact support.';
+       ? `Ваш аккаунт был заблокирован. Причина: ${user.blockReasonForUser}. Пожалуйста обратитесь в поддержку.`
+      : 'Ваш аккаунт был заблокирован. Пожалуйста обратитесь в поддержку.';
       throw new ForbiddenException(blockMessage);
     }
     
     if (user.status === UserStatus.PENDING) {
-      throw new ForbiddenException('Please verify your email address before logging in.');
+      throw new ForbiddenException('Пожалуйста, подтвердите свой адрес электронной почты перед входом в систему.');
     }
 
     return { id: user.id, email: user.email, role: user.role };

@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../entities/user.entity';
+import { SupportMessage } from '../../entities/support-message.entity';
 import { UserStatus } from '../../enums/user/user-status.enum';
 import { BlockUserDto } from './dto/block-user.dto';
 
@@ -14,6 +15,8 @@ export class AdminService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(SupportMessage)
+    private readonly supportMessageRepository: Repository<SupportMessage>,
   ) {}
 
 async getAllUsers(): Promise<any[]> {
@@ -28,7 +31,15 @@ async getUserById(id: string): Promise<any> {
 }
 
   async blockUser(id: string, dto: BlockUserDto): Promise<{ message: string }> {
-    const user = await this.getUserById(id);
+    const user = await this.userRepository.findOne({ where: { id } });
+    
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === 'admin') {
+      throw new BadRequestException('Cannot block an administrator');
+    }
 
     if (user.status === UserStatus.BLOCKED) {
       throw new BadRequestException('User is already blocked');
@@ -36,7 +47,7 @@ async getUserById(id: string): Promise<any> {
 
     user.status = UserStatus.BLOCKED;
     user.blockReason = dto.reason;
-    user.blockReasonForUser = dto.reasonForUser || dto.reason; 
+    user.blockReasonForUser = dto.reason; // Используем одно поле для обеих причин
     user.blockedAt = new Date();
 
     await this.userRepository.save(user);
@@ -61,7 +72,58 @@ async getUserById(id: string): Promise<any> {
     return { message: 'User successfully unblocked' };
   }
 
-  // Добавьте этот метод в AdminService
+  async sendSupportMessage(email: string, message: string, blockReason?: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { email } });
+    
+    if (!user) {
+      throw new NotFoundException('Пользователь не найден');
+    }
+
+    if (user.status !== UserStatus.BLOCKED) {
+      throw new BadRequestException('Только заблокированные пользователи могут отправлять сообщения в службу поддержки');
+    }
+
+    const supportMessage = this.supportMessageRepository.create({
+      userId: user.id,
+      message,
+      blockReason: blockReason || user.blockReason,
+    });
+
+    await this.supportMessageRepository.save(supportMessage);
+
+    return { message: 'Сообщение службы поддержки успешно отправлено' };
+  }
+
+  async getAllSupportMessages(): Promise<any[]> {
+    const messages = await this.supportMessageRepository.find({
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+    });
+
+    return messages.map(msg => ({
+      id: msg.id,
+      userEmail: msg.user.email,
+      userName: `${msg.user.firstName} ${msg.user.lastName}`,
+      message: msg.message,
+      blockReason: msg.blockReason,
+      isRead: msg.isRead,
+      createdAt: msg.createdAt,
+    }));
+  }
+
+  async markSupportMessageAsRead(id: string): Promise<{ message: string }> {
+    const supportMessage = await this.supportMessageRepository.findOne({ where: { id } });
+    
+    if (!supportMessage) {
+      throw new NotFoundException('Сообщение службы поддержки не найдено');
+    }
+
+    supportMessage.isRead = true;
+    await this.supportMessageRepository.save(supportMessage);
+
+    return { message: 'Сообщение службы поддержки помечено как прочитанное' };
+  }
+
 private formatUserResponse(user: User): any {
   return {
     id: user.id,
@@ -73,12 +135,10 @@ private formatUserResponse(user: User): any {
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
-    // Для админа показываем больше информации
     ...(user.status === UserStatus.BLOCKED && {
       blockInfo: {
         blockedAt: user.blockedAt,
-        blockReason: user.blockReason, // Внутренняя причина
-        blockReasonForUser: user.blockReasonForUser, // Причина для пользователя
+        blockReason: user.blockReason,
       }
     })
   };

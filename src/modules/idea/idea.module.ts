@@ -7,11 +7,13 @@ import { UserReaction } from '../../entities/user-reaction.entity';
 import { IdeaService } from './idea.service';
 import { IdeaController } from './idea.controller';
 import { AuthModule } from '../auth/auth.module';
+import { BadgeModule } from '../badge/badge.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Idea, Comment, Topic, UserReaction]),
     AuthModule,
+    BadgeModule,
   ],
   controllers: [IdeaController],
   providers: [IdeaService],
