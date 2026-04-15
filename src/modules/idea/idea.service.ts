@@ -34,7 +34,6 @@ export class IdeaService {
     const response: any = {
       id: idea.id, // Всегда включаем id, так как он нужен для реакций и комментариев
       title: idea.title,
-      description: idea.description,
       images: idea.images || [],
       likes: idea.likes,
       dislikes: idea.dislikes,
@@ -235,9 +234,7 @@ export class IdeaService {
     if (typeof updateIdeaDto.title !== 'undefined') {
       idea.title = updateIdeaDto.title;
     }
-    if (typeof updateIdeaDto.description !== 'undefined') {
-      idea.description = updateIdeaDto.description;
-    }
+ 
     if (typeof updateIdeaDto.images !== 'undefined') {
       idea.images = updateIdeaDto.images;
     }

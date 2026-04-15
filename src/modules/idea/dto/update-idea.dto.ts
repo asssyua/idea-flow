@@ -6,10 +6,6 @@ export class UpdateIdeaDto {
   title?: string;
 
   @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   images?: string[];

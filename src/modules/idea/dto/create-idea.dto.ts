@@ -7,10 +7,6 @@ export class CreateIdeaDto {
 
   @IsString()
   @IsNotEmpty()
-  description: string;
-
-  @IsString()
-  @IsNotEmpty()
   topicId: string;
 
   @IsOptional()
