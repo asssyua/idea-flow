@@ -7,8 +7,19 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../entities/user.entity';
 import { SupportMessage } from '../../entities/support-message.entity';
+import { Topic } from '../../entities/topic.entity';
+import { Idea } from '../../entities/idea.entity';
+import { Comment } from '../../entities/comment.entity';
 import { UserStatus } from '../../enums/user/user-status.enum';
 import { BlockUserDto } from './dto/block-user.dto';
+
+interface UserStats {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  count: number;
+}
 
 @Injectable()
 export class AdminService {
@@ -17,6 +28,12 @@ export class AdminService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(SupportMessage)
     private readonly supportMessageRepository: Repository<SupportMessage>,
+    @InjectRepository(Topic)
+    private readonly topicRepository: Repository<Topic>,
+    @InjectRepository(Idea)
+    private readonly ideaRepository: Repository<Idea>,
+    @InjectRepository(Comment)
+    private readonly commentRepository: Repository<Comment>,
   ) {}
 
 async getAllUsers(): Promise<any[]> {
@@ -144,5 +161,117 @@ private formatUserResponse(user: User): any {
   };
 }
 
+async getStatistics(): Promise<{
+  topTopicsCreators: UserStats[];
+  topIdeasAuthors: UserStats[];
+  topCommentsAuthors: UserStats[];
+  topLikesReceivers: UserStats[];
+}> {
+  // Топ по созданным темам
+  const topics = await this.topicRepository.find({ relations: ['createdBy'] });
+  const topicsCountMap = new Map<string, UserStats>();
+  
+  for (const topic of topics) {
+    if (!topic.createdBy) continue;
+    const userId = topic.createdBy.id;
+    const existing = topicsCountMap.get(userId);
+    if (existing) {
+      existing.count++;
+    } else {
+      topicsCountMap.set(userId, {
+        id: userId,
+        firstName: topic.createdBy.firstName,
+        lastName: topic.createdBy.lastName,
+        email: topic.createdBy.email,
+        count: 1,
+      });
+    }
+  }
+  
+  const topTopicsCreators = Array.from(topicsCountMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+  
+  // Топ по опубликованным идеям
+  const ideas = await this.ideaRepository.find({ relations: ['author'] });
+  const ideasCountMap = new Map<string, UserStats>();
+  
+  for (const idea of ideas) {
+    if (!idea.author) continue;
+    const userId = idea.author.id;
+    const existing = ideasCountMap.get(userId);
+    if (existing) {
+      existing.count++;
+    } else {
+      ideasCountMap.set(userId, {
+        id: userId,
+        firstName: idea.author.firstName,
+        lastName: idea.author.lastName,
+        email: idea.author.email,
+        count: 1,
+      });
+    }
+  }
+  
+  const topIdeasAuthors = Array.from(ideasCountMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+  
+  // Топ по комментариям
+  const comments = await this.commentRepository.find({ relations: ['author'] });
+  const commentsCountMap = new Map<string, UserStats>();
+  
+  for (const comment of comments) {
+    if (!comment.author) continue;
+    const userId = comment.author.id;
+    const existing = commentsCountMap.get(userId);
+    if (existing) {
+      existing.count++;
+    } else {
+      commentsCountMap.set(userId, {
+        id: userId,
+        firstName: comment.author.firstName,
+        lastName: comment.author.lastName,
+        email: comment.author.email,
+        count: 1,
+      });
+    }
+  }
+  
+  const topCommentsAuthors = Array.from(commentsCountMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+  
+  // Топ по полученным лайкам (сумма лайков на идеях автора)
+  const likesCountMap = new Map<string, UserStats>();
+  
+  for (const idea of ideas) {
+    if (!idea.author) continue;
+    const userId = idea.author.id;
+    const existing = likesCountMap.get(userId);
+    if (existing) {
+      existing.count += idea.likes || 0;
+    } else {
+      likesCountMap.set(userId, {
+        id: userId,
+        firstName: idea.author.firstName,
+        lastName: idea.author.lastName,
+        email: idea.author.email,
+        count: idea.likes || 0,
+      });
+    }
+  }
+  
+  const topLikesReceivers = Array.from(likesCountMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+  
+  return {
+    topTopicsCreators,
+    topIdeasAuthors,
+    topCommentsAuthors,
+    topLikesReceivers,
+  };
+}
 
 }
