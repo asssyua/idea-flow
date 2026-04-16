@@ -69,4 +69,17 @@ export class AdminController {
   async markSupportMessageAsRead(@Param('id') id: string) {
     return this.adminService.markSupportMessageAsRead(id);
   }
+
+  @Get('statistics')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getStatistics(): Promise<{
+    topTopicsCreators: { id: string; firstName: string; lastName: string; email: string; count: number }[];
+    topIdeasAuthors: { id: string; firstName: string; lastName: string; email: string; count: number }[];
+    topCommentsAuthors: { id: string; firstName: string; lastName: string; email: string; count: number }[];
+    topLikesReceivers: { id: string; firstName: string; lastName: string; email: string; count: number }[];
+  }> {
+    console.log('GET /admin/statistics called');
+    return this.adminService.getStatistics();
+  }
 }
