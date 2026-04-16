@@ -83,11 +83,12 @@ export class EmailService {
       return false;
     }
   }
-async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
+  async sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
     try {
       this.logger.log(`Завершение сброса пароля по электронной почте на: ${email}`);
 
-      const resetLink = `http://localhost:3000/auth/reset-password?token=${resetToken}`;
+      const frontendAppUrl = (process.env.FRONTEND_APP_URL || 'https://ideaflow.of.by').trim().replace(/\/$/, '');
+      const resetLink = `${frontendAppUrl}/forgot-password?token=${resetToken}`;
 
       const mailOptions = {
         from: `"IdeaFlow" <${process.env.EMAIL_USER}>`,
