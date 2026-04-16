@@ -48,7 +48,10 @@ export class Topic {
   updatedAt: Date;
 
   get isExpired(): boolean {
-    return this.deadline ? new Date() > this.deadline : false;
+    if (!this.deadline) return false;
+    const deadlineTime = new Date(this.deadline).getTime();
+    const now = Date.now();
+    return now > deadlineTime;
   }
 
   get canAddIdeas(): boolean {
