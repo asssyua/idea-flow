@@ -28,6 +28,12 @@ import { IdeaModule } from './modules/idea/idea.module';
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: true,
         logging: true,
+        ssl: true, 
+        extra: {
+      ssl: {
+        rejectUnauthorized: false, 
+      },
+    },
       }),
       inject: [ConfigService],
     }),
