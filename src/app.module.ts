@@ -26,7 +26,7 @@ import { IdeaModule } from './modules/idea/idea.module';
         password: configService.get('DB_PASSWORD'), 
         database: configService.get('DB_NAME', 'ideaflow_db'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true,
+        synchronize: false,
         logging: true,
         ssl: true, 
         extra: {
