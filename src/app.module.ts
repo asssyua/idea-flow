@@ -18,23 +18,28 @@ import { IdeaModule } from './modules/idea/idea.module';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get('DB_USERNAME', 'postgres'),
-        password: configService.get('DB_PASSWORD'), 
-        database: configService.get('DB_NAME', 'ideaflow_db'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false,
-        logging: false,
-        ssl: true, 
-        extra: {
-      ssl: {
-        rejectUnauthorized: false, 
+      useFactory: (configService: ConfigService) => {
+        const sslEnabled = configService.get('DB_SSL') === 'true' || configService.get('DB_SSL') === true;
+        return {
+          type: 'postgres',
+          host: configService.get('DB_HOST', 'localhost'),
+          port: configService.get<number>('DB_PORT', 5432),
+          username: configService.get('DB_USERNAME', 'postgres'),
+          password: configService.get('DB_PASSWORD'),
+          database: configService.get('DB_NAME', 'ideaflow_db'),
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: false,
+          logging: false,
+          ...(sslEnabled ? {
+            ssl: true,
+            extra: {
+              ssl: {
+                rejectUnauthorized: false,
+              },
+            },
+          } : {}),
+        };
       },
-    },
-      }),
       inject: [ConfigService],
     }),
     AuthModule,
