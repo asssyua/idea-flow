@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { User } from '../../entities/user.entity';
 import { RevokedToken } from '../../entities/revoked-token.entity';
 import { LoginDto } from './dto/login.dto';
@@ -122,7 +122,7 @@ export class AuthService {
     sub: user.id, 
     role: user.role,
     verified: user.isEmailVerified,
-    jti: uuidv4()
+    jti: randomUUID()
   };
   
   return {
@@ -188,7 +188,7 @@ export class AuthService {
     email: user.email, 
     sub: user.id, 
     role: user.role, 
-    jti: uuidv4(),  
+    jti: randomUUID(),  
     verified: user.isEmailVerified 
   };
 
@@ -338,6 +338,6 @@ async validateUser(email: string, password: string): Promise<any> {
   }
 
   private generateResetToken(): string {
-    return uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase();
+    return randomUUID().replace(/-/g, '').substring(0, 16).toUpperCase();
   }
 }

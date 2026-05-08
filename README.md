@@ -1,98 +1,98 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# IdeaFlow Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS API for the IdeaFlow application.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Requirements
 
-## Description
+- Node.js 20+
+- npm
+- PostgreSQL 15+ or Supabase PostgreSQL
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Environment
 
-## Project setup
+Create a local `.env` file from the example:
 
 ```bash
-$ npm install
+cp .env.example .env
 ```
 
-## Compile and run the project
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Required variables:
+
+- `DB_HOST` - PostgreSQL host.
+- `DB_PORT` - PostgreSQL port, usually `5432` locally or `6543` for Supabase pooler.
+- `DB_USERNAME` - database user.
+- `DB_PASSWORD` - database password.
+- `DB_NAME` - database name.
+- `DB_SYNCHRONIZE` - `true` only for local development or one-time schema creation; use `false` in production.
+- `DB_SSL` - `false` locally, `true` for Supabase/Render production connections.
+- `NODE_ENV` - `development` locally, `production` on Render.
+- `PORT` - backend port, default local value is `3000`.
+- `JWT_SECRET` - long random secret for JWT signing.
+- `JWT_EXPIRES_IN` - JWT lifetime, for example `7d`.
+- `EMAIL_HOST` - SMTP host.
+- `EMAIL_PORT` - SMTP port.
+- `EMAIL_USER` - SMTP username/email.
+- `EMAIL_PASS` - SMTP app password.
+- `FRONTEND_URLS` - comma-separated allowed frontend origins for CORS.
+- `FRONTEND_APP_URL` - public frontend URL used in email links.
+
+Do not commit `.env` with real secrets.
+
+## Local database
+
+Create the database manually before first backend start:
+
+```sql
+CREATE DATABASE ideaflow_db;
+```
+
+For local development keep:
+
+```env
+NODE_ENV=development
+DB_SYNCHRONIZE=true
+DB_SSL=false
+```
+
+With these values TypeORM creates missing tables from entity classes on startup.
+
+## Install and run
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
+npm run start:dev
 ```
 
-## Run tests
+The API starts on:
+
+```text
+http://localhost:3000
+```
+
+## Build
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run build
 ```
 
-## Deployment
+## Production notes
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+For Render + Supabase use environment variables in the Render dashboard, not `.env`.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Recommended production values:
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```env
+NODE_ENV=production
+DB_SSL=true
+DB_SYNCHRONIZE=false
+FRONTEND_URLS=https://your-frontend-domain.com
+FRONTEND_APP_URL=https://your-frontend-domain.com
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Before deploying with `DB_SYNCHRONIZE=false`, make sure the Supabase database schema already exists.

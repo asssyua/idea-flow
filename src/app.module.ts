@@ -20,6 +20,8 @@ import { IdeaModule } from './modules/idea/idea.module';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const sslEnabled = configService.get('DB_SSL') === 'true' || configService.get('DB_SSL') === true;
+        const isProduction = configService.get('NODE_ENV') === 'production';
+        const synchronizeEnabled = !isProduction && (configService.get('DB_SYNCHRONIZE') === 'true' || configService.get('DB_SYNCHRONIZE') === true);
         return {
           type: 'postgres',
           host: configService.get('DB_HOST', 'localhost'),
@@ -28,7 +30,7 @@ import { IdeaModule } from './modules/idea/idea.module';
           password: configService.get('DB_PASSWORD'),
           database: configService.get('DB_NAME', 'ideaflow_db'),
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: false,
+          synchronize: synchronizeEnabled,
           logging: false,
           ...(sslEnabled ? {
             ssl: true,
