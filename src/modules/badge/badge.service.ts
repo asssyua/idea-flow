@@ -5,8 +5,10 @@ import { UserBadge } from '../../entities/user-badge.entity';
 import { Idea } from '../../entities/idea.entity';
 import { Comment } from '../../entities/comment.entity';
 import { Topic } from '../../entities/topic.entity';
+import { UserReaction } from '../../entities/user-reaction.entity';
 import { BadgeType } from '../../enums/badge/badge-type.enum';
 import { TopicStatus } from '../../enums/topic/topic-status.enum';
+import { ReactionType } from '../../enums/reactions-type.enum';
 
 export interface BadgeDisplayDto {
   type: BadgeType;
@@ -37,6 +39,8 @@ export class BadgeService {
     private readonly commentRepository: Repository<Comment>,
     @InjectRepository(Topic)
     private readonly topicRepository: Repository<Topic>,
+    @InjectRepository(UserReaction)
+    private readonly userReactionRepository: Repository<UserReaction>,
   ) {}
 
   async getBadgesForDisplay(userId: string): Promise<BadgeDisplayDto[]> {
@@ -55,6 +59,10 @@ export class BadgeService {
     await this.syncPopularAuthor(userId);
     await this.syncTotalLikes(userId);
     await this.syncTopicMaster(userId);
+    await this.syncEditorsChoice(userId);
+    await this.syncIdeaGenerator(userId);
+    await this.syncCommunityHeart(userId);
+    await this.syncKnowItAll(userId);
   }
 
   async evaluateAfterIdeaCreated(userId: string): Promise<void> {
@@ -72,6 +80,14 @@ export class BadgeService {
 
   async evaluateAfterTopicApprovedOrCreated(userId: string): Promise<void> {
     await this.syncTopicMaster(userId);
+  }
+
+  async evaluateAfterIdeaPinned(userId: string): Promise<void> {
+    await this.syncEditorsChoice(userId);
+  }
+
+  async evaluateAfterLikeGiven(userId: string): Promise<void> {
+    await this.syncCommunityHeart(userId);
   }
 
   private async upsertBadge(userId: string, badgeType: BadgeType, newLevel: number): Promise<void> {
@@ -137,6 +153,44 @@ export class BadgeService {
     });
     if (approvedCount >= 5) {
       await this.upsertBadge(userId, BadgeType.TOPIC_MASTER, 1);
+    }
+  }
+
+  private async syncEditorsChoice(userId: string): Promise<void> {
+    const pinnedCount = await this.ideaRepository.count({
+      where: { authorId: userId, isPinned: true },
+    });
+    if (pinnedCount >= 3) {
+      await this.upsertBadge(userId, BadgeType.EDITORS_CHOICE, 1);
+    }
+  }
+
+  private async syncIdeaGenerator(userId: string): Promise<void> {
+    const count = await this.ideaRepository.count({ where: { authorId: userId } });
+    if (count >= 10) {
+      await this.upsertBadge(userId, BadgeType.IDEA_GENERATOR, 1);
+    }
+  }
+
+  private async syncCommunityHeart(userId: string): Promise<void> {
+    const givenLikes = await this.userReactionRepository.count({
+      where: { userId, type: ReactionType.LIKE },
+    });
+    if (givenLikes >= 10) {
+      await this.upsertBadge(userId, BadgeType.COMMUNITY_HEART, 1);
+    }
+  }
+
+  private async syncKnowItAll(userId: string): Promise<void> {
+    const distinctTopics = await this.commentRepository
+      .createQueryBuilder('comment')
+      .select('COUNT(DISTINCT idea.topicId)', 'count')
+      .innerJoin('comment.idea', 'idea')
+      .where('comment.authorId = :userId', { userId })
+      .getRawOne<{ count: string }>();
+    const count = parseInt(distinctTopics?.count ?? '0', 10) || 0;
+    if (count >= 5) {
+      await this.upsertBadge(userId, BadgeType.KNOW_IT_ALL, 1);
     }
   }
 
@@ -207,6 +261,38 @@ export class BadgeService {
           description: 'За создание 5 одобренных тем',
           tierLabel: '5+ тем',
           color: '#8E44AD',
+        };
+      case BadgeType.EDITORS_CHOICE:
+        return {
+          ...base,
+          title: 'Выбор редакции',
+          description: '3 идеи были закреплены',
+          tierLabel: '3+ закреплений',
+          color: '#E67E22',
+        };
+      case BadgeType.IDEA_GENERATOR:
+        return {
+          ...base,
+          title: 'Генератор идей',
+          description: 'Опубликовано 10 идей',
+          tierLabel: '10+ идей',
+          color: '#F1C40F',
+        };
+      case BadgeType.COMMUNITY_HEART:
+        return {
+          ...base,
+          title: 'Сердце сообщества',
+          description: 'Поставлено 10 лайков чужим идеям',
+          tierLabel: '10+ лайков',
+          color: '#E74C3C',
+        };
+      case BadgeType.KNOW_IT_ALL:
+        return {
+          ...base,
+          title: 'Всезнайка',
+          description: 'Оставил комментарии не менее чем в 5 разных темах',
+          tierLabel: '5+ тем',
+          color: '#9B59B6',
         };
       default:
         return {

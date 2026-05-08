@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, Matches, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsString, MaxLength, Matches, IsNotEmpty } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail()
@@ -7,13 +7,12 @@ export class RegisterDto {
   email: string;
 
   @IsString()
-  @MinLength(8)
-  @MaxLength(100)
+  @MaxLength(100, { message: 'Пароль не должен превышать 100 символов' })
   @Matches(/(?=.*[a-z])(?=.*[A-Z])/, {
     message: 'Пароль должен содержать не менее 1 заглавной и не менее 1 строчной буквы'
   })
   @Matches(/(?=.*\d)?/, {
-    message: 'Password should contain at least one digit'
+    message: 'Пароль должен содержать хотя бы одну цифру'
   })
   password: string;
 
@@ -21,7 +20,7 @@ export class RegisterDto {
   @IsNotEmpty()
   @MaxLength(20)
   @Matches(/^[a-zA-Zа-яА-ЯёЁ]+$/, {
-    message: 'First name can only contain letters'
+    message: 'Имя может содержать только буквы'
   })
   firstName: string;
 
@@ -29,7 +28,7 @@ export class RegisterDto {
   @IsNotEmpty()
   @MaxLength(20)
   @Matches(/^[a-zA-Zа-яА-ЯёЁ]+$/, {
-    message: 'Last name can only contain letters'
+    message: 'Фамилия может содержать только буквы'
   })
   lastName: string;
 }
