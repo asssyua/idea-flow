@@ -162,6 +162,9 @@ export class IdeaService {
     idea.isPinned = true;
     idea.pinnedAt = new Date();
     const savedIdea = await this.ideaRepository.save(idea);
+    
+    await this.badgeService.evaluateAfterIdeaPinned(idea.authorId);
+    
     return this.formatIdeaResponse(savedIdea, user.role === UserRole.ADMIN, user);
   }
 
@@ -328,6 +331,7 @@ export class IdeaService {
     idea.likes += 1;
     const savedIdea = await this.ideaRepository.save(idea);
     await this.badgeService.evaluateAfterAuthorIdeaMetricsChanged(idea.authorId);
+    await this.badgeService.evaluateAfterLikeGiven(user.id);
     return this.formatIdeaResponse(savedIdea, user.role === UserRole.ADMIN, user);
   }
 
