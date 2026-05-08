@@ -35,10 +35,13 @@ Required variables:
 - `PORT` - backend port, default local value is `3000`.
 - `JWT_SECRET` - long random secret for JWT signing.
 - `JWT_EXPIRES_IN` - JWT lifetime, for example `7d`.
-- `EMAIL_HOST` - SMTP host.
-- `EMAIL_PORT` - SMTP port.
-- `EMAIL_USER` - SMTP username/email.
-- `EMAIL_PASS` - SMTP app password.
+- `EMAIL_PROVIDER` - email provider: `resend` by default, or `smtp` for the old SMTP mode.
+- `RESEND_API_KEY` - Resend API key, required when `EMAIL_PROVIDER=resend`.
+- `EMAIL_FROM` - sender address, for example `IdeaFlow <noreply@your-domain.com>`.
+- `EMAIL_HOST` - SMTP host, used only when `EMAIL_PROVIDER=smtp`.
+- `EMAIL_PORT` - SMTP port, used only when `EMAIL_PROVIDER=smtp`.
+- `EMAIL_USER` - SMTP username/email, used only when `EMAIL_PROVIDER=smtp`.
+- `EMAIL_PASS` - SMTP app password, used only when `EMAIL_PROVIDER=smtp`.
 - `FRONTEND_URLS` - comma-separated allowed frontend origins for CORS.
 - `FRONTEND_APP_URL` - public frontend URL used in email links.
 
@@ -85,14 +88,84 @@ npm run build
 
 For Render + Supabase use environment variables in the Render dashboard, not `.env`.
 
+Recommended Render settings:
+
+```text
+Build command: npm install --include=dev && npm run build
+Start command: npm run start:prod
+```
+
 Recommended production values:
 
 ```env
 NODE_ENV=production
 DB_SSL=true
 DB_SYNCHRONIZE=false
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=your-resend-api-key
+EMAIL_FROM=IdeaFlow <noreply@your-domain.com>
 FRONTEND_URLS=https://your-frontend-domain.com
 FRONTEND_APP_URL=https://your-frontend-domain.com
 ```
 
 Before deploying with `DB_SYNCHRONIZE=false`, make sure the Supabase database schema already exists.
+
+## Email provider
+
+The application supports two email modes:
+
+```env
+EMAIL_PROVIDER=resend
+```
+
+Use this mode on Render Free because Render Free blocks outbound SMTP ports.
+
+```env
+EMAIL_PROVIDER=smtp
+```
+
+Use this mode only for local testing or paid hosting where SMTP ports are available.
+
+### Resend setup
+
+1. Create an account at `https://resend.com`.
+2. Open `API Keys` and create an API key.
+3. Add your domain in Resend, for example `your-domain.com`.
+4. Copy the DNS records from Resend to Cloudflare DNS.
+5. Keep Resend DNS records as `DNS only` in Cloudflare.
+6. Wait until the domain is verified in Resend.
+7. Use a sender like `IdeaFlow <noreply@your-domain.com>`.
+
+### Local Resend test
+
+Set these values in local `.env`:
+
+```env
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=your-resend-api-key
+EMAIL_FROM=IdeaFlow <noreply@your-domain.com>
+FRONTEND_APP_URL=http://localhost:3001
+```
+
+Then run:
+
+```bash
+npm run start:dev
+```
+
+Register a new user from the frontend and check that the verification email arrives.
+
+### Local SMTP fallback test
+
+Set these values in local `.env`:
+
+```env
+EMAIL_PROVIDER=smtp
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-gmail-app-password
+EMAIL_FROM=IdeaFlow <your-email@gmail.com>
+```
+
+Do not use SMTP mode on Render Free.

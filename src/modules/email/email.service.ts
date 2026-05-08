@@ -1,19 +1,38 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter;
+  private transporter?: nodemailer.Transporter;
+  private resend?: Resend;
+  private readonly provider: 'resend' | 'smtp';
+  private readonly emailFrom: string;
 
   constructor() {
     this.logger.log('Инициализация службы электронной почты...');
 
+    this.provider = process.env.EMAIL_PROVIDER?.trim().toLowerCase() === 'smtp' ? 'smtp' : 'resend';
     const emailUser = process.env.EMAIL_USER?.trim();
     // Убираем пробелы из пароля (Gmail app password должен быть без пробелов)
     const emailPass = process.env.EMAIL_PASS?.replace(/\s/g, '');
     const emailHost = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com';
     const emailPort = parseInt(process.env.EMAIL_PORT?.trim() || '587');
+    const resendApiKey = process.env.RESEND_API_KEY?.trim();
+    this.emailFrom = process.env.EMAIL_FROM?.trim() || (emailUser ? `"IdeaFlow" <${emailUser}>` : 'IdeaFlow <onboarding@resend.dev>');
+
+    this.logger.log(`Email провайдер: ${this.provider}`);
+
+    if (this.provider === 'resend') {
+      if (!resendApiKey) {
+        this.logger.error('ВНИМАНИЕ: RESEND_API_KEY не задан в переменных окружения!');
+      }
+
+      this.resend = new Resend(resendApiKey || '');
+      this.logger.log(`Resend конфигурация: отправитель ${this.emailFrom}`);
+      return;
+    }
 
     this.logger.log(`SMTP конфигурация: ${emailHost}:${emailPort}, пользователь: ${emailUser || 'не задан'}`);
 
@@ -42,6 +61,10 @@ export class EmailService {
 
   private async verifyConnection() {
     try {
+      if (!this.transporter) {
+        return;
+      }
+
       await this.transporter.verify();
       this.logger.log('Подключение к электронной почте успешно подтверждено');
     } catch (error: any) {
@@ -60,17 +83,11 @@ export class EmailService {
     try {
       this.logger.log(`Отправка проверочного кода на: ${email}`);
 
-      const mailOptions = {
-        from: `"IdeaFlow" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Подтверждение регистрации в IdeaFlow',
-        html: this.getVerificationEmailTemplate(code),
-      };
-
-      const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(` Электронное письмо с уведомлением, отправленное по адресу${email},  ID сообщения: ${info.messageId}`);
-      
-      return true;
+      return await this.sendEmail(
+        email,
+        'Подтверждение регистрации в IdeaFlow',
+        this.getVerificationEmailTemplate(code),
+      );
     } catch (error: any) {
       this.logger.error(`Не удалось отправить письмо на почту ${email}:`, error?.message || error);
 
@@ -90,18 +107,70 @@ export class EmailService {
       const frontendAppUrl = (process.env.FRONTEND_APP_URL || 'https://ideaflow.of.by').trim().replace(/\/$/, '');
       const resetLink = `${frontendAppUrl}/forgot-password?token=${resetToken}`;
 
-      const mailOptions = {
-        from: `"IdeaFlow" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Восстановление пароля в IdeaFlow',
-        html: this.getPasswordResetEmailTemplate(resetToken, resetLink),
-      };
-
-      await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Электронное письмо для сброса пароля, отправленное на адрес${email}`);
-      return true;
+      return await this.sendEmail(
+        email,
+        'Восстановление пароля в IdeaFlow',
+        this.getPasswordResetEmailTemplate(resetToken, resetLink),
+      );
     } catch (error: any) {
       this.logger.error(`Не удалось отправить электронное письмо для сброса пароля на ${email}:`, error?.message || error);
+      return false;
+    }
+  }
+
+  private async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+    if (this.provider === 'smtp') {
+      return this.sendEmailWithSmtp(to, subject, html);
+    }
+
+    return this.sendEmailWithResend(to, subject, html);
+  }
+
+  private async sendEmailWithResend(to: string, subject: string, html: string): Promise<boolean> {
+    try {
+      if (!this.resend) {
+        this.logger.error('Resend клиент не инициализирован');
+        return false;
+      }
+
+      const result = await this.resend.emails.send({
+        from: this.emailFrom,
+        to,
+        subject,
+        html,
+      });
+
+      if (result.error) {
+        this.logger.error(`Resend не смог отправить письмо на ${to}:`, result.error.message);
+        return false;
+      }
+
+      this.logger.log(`Письмо отправлено через Resend на ${to}, ID сообщения: ${result.data?.id}`);
+      return true;
+    } catch (error: any) {
+      this.logger.error(`Не удалось отправить письмо через Resend на ${to}:`, error?.message || error);
+      return false;
+    }
+  }
+
+  private async sendEmailWithSmtp(to: string, subject: string, html: string): Promise<boolean> {
+    try {
+      if (!this.transporter) {
+        this.logger.error('SMTP transporter не инициализирован');
+        return false;
+      }
+
+      const info = await this.transporter.sendMail({
+        from: this.emailFrom,
+        to,
+        subject,
+        html,
+      });
+
+      this.logger.log(`Письмо отправлено через SMTP на ${to}, ID сообщения: ${info.messageId}`);
+      return true;
+    } catch (error: any) {
+      this.logger.error(`Не удалось отправить письмо через SMTP на ${to}:`, error?.message || error);
       return false;
     }
   }
